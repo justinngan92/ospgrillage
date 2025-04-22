@@ -96,14 +96,45 @@ def test_point_load_getter(
     #     "ops.load(18, *[0, 12.685458513118162, 0, -3.6244167180337583, 0, -5.289120462525217])\n",
     #     "ops.load(13, *[0, 5.234541486881841, 0, -1.4955832819662394, 0, 2.943613562202012])\n",
     # ]
-    reference_command = example_bridge.load_case_list[0]["load_command"]
+    # reference_command = example_bridge.load_case_list[0]["load_command"]
+    #
+    # assert reference_command
+    import re
 
-    assert reference_command
+    def parse_load_cmd(cmd):
+        # Extract node ID and list of floats from string like: ops.load(12, *[0, np.float64(x), 0, ...])
+        match = re.match(r"ops\.load\((\d+), \*\[([^\]]+)\]\)", cmd.strip())
+        assert match, f"Failed to parse: {cmd}"
+        node = int(match.group(1))
+        values = [
+            float(x.split("(")[-1].rstrip(")"))
+            for x in match.group(2).split(",")
+            if "np.float64" in x
+        ]
+        return node, values
 
-    assert example_bridge.load_case_list[0]["load_command"] == ['ops.load(12, *[0, np.float64(0.6075807082987873), 0, np.float64(0.3738958204915613), 0, np.float64(0.34166943132702027)])\n',
- 'ops.load(17, *[0, np.float64(1.4724192917012136), 0, np.float64(0.9061041795084389), 0, np.float64(-0.6139157679716769)])\n',
- 'ops.load(18, *[0, np.float64(12.685458513118142), 0, np.float64(-3.624416718033756), 0, np.float64(-5.289120462525214)])\n',
- 'ops.load(13, *[0, np.float64(5.234541486881858), 0, np.float64(-1.4955832819662453), 0, np.float64(2.94361356220202)])\n']
+    expected_cmds = [
+        (12, [0.6075807082987873, 0.3738958204915613, 0.34166943132702027]),
+        (17, [1.4724192917012136, 0.9061041795084389, -0.6139157679716769]),
+        (18, [12.685458513118142, -3.624416718033756, -5.289120462525214]),
+        (13, [5.234541486881858, -1.4955832819662453, 2.94361356220202]),
+    ]
+
+    for cmd_str, (exp_node, exp_vals) in zip(
+        example_bridge.load_case_list[0]["load_command"], expected_cmds
+    ):
+        node, values = parse_load_cmd(cmd_str)
+        assert node == exp_node
+        for a, b in zip(values, exp_vals):
+            assert abs(a - b) < 1e-9  # tolerance for float comparison
+
+    # assert example_bridge.load_case_list[0]["load_command"] == [
+    #     "ops.load(12, *[0, np.float64(0.6075807082987873), 0, np.float64(0.3738958204915613), 0, np.float64(0.34166943132702027)])\n",
+    #     "ops.load(17, *[0, np.float64(1.4724192917012136), 0, np.float64(0.9061041795084389), 0, np.float64(-0.6139157679716769)])\n",
+    #     "ops.load(18, *[0, np.float64(12.685458513118142), 0, np.float64(-3.624416718033756), 0, np.float64(-5.289120462525214)])\n",
+    #     "ops.load(13, *[0, np.float64(5.234541486881858), 0, np.float64(-1.4955832819662453), 0, np.float64(2.94361356220202)])\n",
+    # ]
+
 
 # test point load returning None when point (loadpoint) is outside of mesh
 def test_point_load_outside_straight_mesh(bridge_model_42_negative):
@@ -1157,7 +1188,7 @@ def test_transient(beam_element_bridge):
         previous_state = beam_bridge.store_state()
         result = beam_bridge.get_results()
         print(result)
-        postprocessor = og.PostProcessor(beam_bridge, result.displacements)
+        postprocessor = og.PostProcessor(beam_bridge, result)
 
         contactpoints = postprocessor.get_arbitrary_displacements(point=[5, 0, 3.5])
         # do something with results

@@ -289,7 +289,10 @@ def plot_force(
         zz = [nodes[n]["coordinate"][2] for n in ele_node.values]
         # use ops_vis module to get force distribution on element
         s, al = opsv.section_force_distribution_3d(
-            ex=xx, ey=yy, ez=zz, pl=ele_components #TODO check inputs with opsv package
+            ex=xx,
+            ey=yy,
+            ez=zz,
+            pl=ele_components,  # TODO check inputs with opsv package
         )
 
         # plot element force component
@@ -439,7 +442,7 @@ class PostProcessor:
                     Component=component,
                     Node=node,
                 )
-                .to_numpy()
+                .displacements.to_numpy()
                 .tolist()[0]
             )
             node_coordinate.append(self.grillage.get_nodes(number=node))
